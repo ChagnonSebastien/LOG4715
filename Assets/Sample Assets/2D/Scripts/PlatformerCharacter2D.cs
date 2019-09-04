@@ -12,16 +12,25 @@ public class PlatformerCharacter2D : MonoBehaviour
 	
 	[SerializeField] bool airControl = false;			// Whether or not a player can steer while jumping;
 	[SerializeField] LayerMask whatIsGround;            // A mask determining what is ground to the character
-    [SerializeField] int maxJumps = 2;
+    [SerializeField] int maxMidairs = 1;
 
 	Transform groundCheck;								// A position marking where to check if the player is grounded.
-	float groundedRadius = .2f;							// Radius of the overlap circle to determine if grounded
+	float groundedRadius = .1f;							// Radius of the overlap circle to determine if grounded
 	bool grounded = false;								// Whether or not the player is grounded.
-    bool previousGrounded = false;
-	Transform ceilingCheck;								// A position marking where to check for ceilings
-	float ceilingRadius = .01f;							// Radius of the overlap circle to determine if the player can stand up
-	Animator anim;										// Reference to the player's animator component.
-    [SerializeField] int jumpCounter = 0;
+    bool previouslyGrounded = false;
+
+    int midairsCounter = 0;
+
+    Transform ceilingCheck;								// A position marking where to check for ceilings
+	float ceilingRadius = .18f;                         // Radius of the overlap circle to determine if the player can stand up
+
+    Animator anim;										// Reference to the player's animator component.
+
+    CapsuleCollider2D coll;                             // Reference to the player's collider component.
+    Vector2 initialColliderOffset;
+    Vector2 initialColliderSize;
+    Vector2 croutchedColliderOffset;
+    Vector2 croutchedColliderSize;
 
 
     void Awake()
@@ -30,13 +39,18 @@ public class PlatformerCharacter2D : MonoBehaviour
 		groundCheck = transform.Find("GroundCheck");
 		ceilingCheck = transform.Find("CeilingCheck");
 		anim = GetComponent<Animator>();
-	}
+        coll = GetComponent<CapsuleCollider2D>();
+        initialColliderSize = coll.size;
+        initialColliderOffset = coll.offset;
+        croutchedColliderOffset = new Vector2(initialColliderOffset.x, initialColliderOffset.y - initialColliderSize.y / 6);
+        croutchedColliderSize = new Vector2(initialColliderSize.x, initialColliderSize.y * 2 / 3);
+    }
 
 
 	void FixedUpdate()
 	{
-		// The player is grounded if a circlecast to the groundcheck position hits anything designated as ground
-        previousGrounded = grounded;
+        // The player is grounded if a circlecast to the groundcheck position hits anything designated as ground
+        previouslyGrounded = grounded;
 		grounded = Physics2D.OverlapCircle(groundCheck.position, groundedRadius, whatIsGround);
 		anim.SetBool("Ground", grounded);
 
@@ -63,9 +77,11 @@ public class PlatformerCharacter2D : MonoBehaviour
 
 		// Set whether or not the character is crouching in the animator
 		anim.SetBool("Crouch", crouch);
+        coll.size = crouch ? croutchedColliderSize : initialColliderSize;
+        coll.offset = crouch ? croutchedColliderOffset : initialColliderOffset;
 
-		//only control the player if grounded or airControl is turned on
-		if(grounded || airControl)
+        //only control the player if grounded or airControl is turned on
+        if (grounded || airControl)
 		{
             // Reduce the speed if crouching by the crouchSpeed multiplier
             move = (crouch ? move * crouchSpeed : move);
@@ -87,16 +103,18 @@ public class PlatformerCharacter2D : MonoBehaviour
 		}
 
         // If the player should jump...
-        if (jump && jumpCounter < maxJumps)
+        if (jump && midairsCounter < maxMidairs)
         {
-            jumpCounter++;
+            if (!grounded) midairsCounter++;
+
             // Add a vertical force to the player.
             anim.SetBool("Ground", false);
             GetComponent<Rigidbody2D>().velocity = new Vector2(GetComponent<Rigidbody2D>().velocity.x, 0);
             GetComponent<Rigidbody2D>().AddForce(new Vector2(0f, jumpForce));
         }
 
-        if (grounded && !previousGrounded) jumpCounter = 0;
+        // Midair reset
+        if (grounded && !previouslyGrounded) midairsCounter = 0;
     }
 
 	
