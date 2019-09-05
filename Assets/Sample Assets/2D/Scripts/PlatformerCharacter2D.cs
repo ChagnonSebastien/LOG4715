@@ -29,7 +29,8 @@ public class PlatformerCharacter2D : MonoBehaviour
     Transform frontWallCheck;					        // A position marking where to check if the player touching the left wall.
     Animator anim;										// Reference to the player's animator component.
     CapsuleCollider2D coll;                             // Reference to the player's collider component.
-    ParticleSystem part;                                // Reference to the player's particle component.
+    ParticleSystem windupParticles;                     // Reference to the player's particle component.
+    ParticleSystem walljumpParticles;                   // A position marking where to check if the player touching the right wall.
 
     float groundedRadius = .1f;							// Radius of the overlap circle to determine if grounded
 	bool grounded = false;								// Whether or not the player is grounded.
@@ -51,9 +52,22 @@ public class PlatformerCharacter2D : MonoBehaviour
         backWallCheck = transform.Find("BackWallCheck");
         frontWallCheck = transform.Find("FrontWallCheck");
 
+        ParticleSystem[] particleSystems = GetComponentsInChildren<ParticleSystem>();
+        foreach (ParticleSystem p in particleSystems)
+        {
+            switch(p.name)
+            {
+                case "WindupParticles":
+                    windupParticles = p;
+                    break;
+                case "WalljumpParticles":
+                    walljumpParticles = p;
+                    break;
+            }
+        }
+
         anim = GetComponent<Animator>();
         coll = GetComponent<CapsuleCollider2D>();
-        part = GetComponent<ParticleSystem>();
 
         initialColliderSize = coll.size;
         initialColliderOffset = coll.offset;
@@ -90,7 +104,7 @@ public class PlatformerCharacter2D : MonoBehaviour
 
 		// Set whether or not the character is crouching in the animator
 		anim.SetBool("Crouch", crouch);
-        if (crouch && grounded) part.Play(); else part.Stop();
+        if (crouch && grounded) windupParticles.Play(); else windupParticles.Stop();
         coll.size = crouch ? croutchedColliderSize : initialColliderSize;
         coll.offset = crouch ? croutchedColliderOffset : initialColliderOffset;
 
@@ -144,6 +158,7 @@ public class PlatformerCharacter2D : MonoBehaviour
                 cancelHorizontalVelocity = true;
                 horizontalForce = walljumpHorizontalForce * (facingRight ? 1 : -1);
                 verticalForce = wallJumpVerticalForce;
+                walljumpParticles.Play();
             }
             else if (Physics2D.OverlapCircle(frontWallCheck.position, wallCheckRadius, whatIsGround))
             {
@@ -151,6 +166,7 @@ public class PlatformerCharacter2D : MonoBehaviour
                 cancelHorizontalVelocity = true;
                 horizontalForce = walljumpHorizontalForce * (facingRight ? -1 : 1);
                 verticalForce = wallJumpVerticalForce;
+                walljumpParticles.Play();
             }
             else if (midairsCounter++ < maxMidairs)
             {
