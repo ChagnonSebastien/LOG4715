@@ -25,10 +25,11 @@ public class PlatformerCharacter2D : MonoBehaviour
 
 	Transform groundCheck;                              // A position marking where to check if the player is grounded.
     Transform ceilingCheck;								// A position marking where to check for ceilings
-    Transform backWallCheck;                           // A position marking where to check if the player touching the right wall.
+    Transform backWallCheck;                            // A position marking where to check if the player touching the right wall.
     Transform frontWallCheck;					        // A position marking where to check if the player touching the left wall.
     Animator anim;										// Reference to the player's animator component.
     CapsuleCollider2D coll;                             // Reference to the player's collider component.
+    ParticleSystem part;                                // Reference to the player's particle component.
 
     float groundedRadius = .1f;							// Radius of the overlap circle to determine if grounded
 	bool grounded = false;								// Whether or not the player is grounded.
@@ -52,6 +53,7 @@ public class PlatformerCharacter2D : MonoBehaviour
 
         anim = GetComponent<Animator>();
         coll = GetComponent<CapsuleCollider2D>();
+        part = GetComponent<ParticleSystem>();
 
         initialColliderSize = coll.size;
         initialColliderOffset = coll.offset;
@@ -88,6 +90,7 @@ public class PlatformerCharacter2D : MonoBehaviour
 
 		// Set whether or not the character is crouching in the animator
 		anim.SetBool("Crouch", crouch);
+        if (crouch && grounded) part.Play(); else part.Stop();
         coll.size = crouch ? croutchedColliderSize : initialColliderSize;
         coll.offset = crouch ? croutchedColliderOffset : initialColliderOffset;
 
