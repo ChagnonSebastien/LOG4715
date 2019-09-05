@@ -5,16 +5,20 @@ public class PlatformerCharacter2D : MonoBehaviour
 	bool facingRight = true;							// For determining which way the player is currently facing.
 
 	[SerializeField] float maxSpeed = 10f;				// The fastest the player can travel in the x axis.
-	[SerializeField] float jumpForce = 600f;            // Amount of force added when the player jumps.
-    [SerializeField] float wallJumpForce = 600f;        // Amount of force added when the player wall jumps.
-    [SerializeField] float wallJumpTime = 2f;           // Amount of time in seconds it take for the player to regain full control after wall jump.
+	[SerializeField] float jumpVerticalForce = 800f;            // Amount of force added when the player jumps.
+    [SerializeField] float midairVerticalForce = 600f; // Amount of force added when the player wall jumps.
+    [SerializeField] float wallJumpVerticalForce = 600f; // Amount of force added when the player wall jumps.
+    [SerializeField] float walljumpHorizontalForce = 500f;
+    [SerializeField] float wallJumpTotalTime = 0.25f;           // Amount of time in seconds it take for the player to regain full control after wall jump.
+    [Range(0, 1)]
+    [SerializeField] float walljumpUncontrolableTime = 0.3f;
+    [SerializeField] int maxMidairs = 1;
 
     [Range(0, 1)]
 	[SerializeField] float crouchSpeed = .36f;			// Amount of maxSpeed applied to crouching movement. 1 = 100%
 	
 	[SerializeField] bool airControl = false;			// Whether or not a player can steer while jumping;
 	[SerializeField] LayerMask whatIsGround;            // A mask determining what is ground to the character
-    [SerializeField] int maxMidairs = 1;
 
     float walljumpControlDelay = 0;
     int midairsCounter = 0;
@@ -97,8 +101,11 @@ public class PlatformerCharacter2D : MonoBehaviour
 			anim.SetFloat("Speed", Mathf.Abs(move));
 
             // Move the character
-            float controlPercentage = 1 - walljumpControlDelay / wallJumpTime;
-			GetComponent<Rigidbody2D>().velocity = new Vector2(
+            float controlPercentage = 1;
+            if (walljumpControlDelay > wallJumpTotalTime * (1 - walljumpUncontrolableTime)) controlPercentage = 0;
+            else if (walljumpControlDelay > 0) controlPercentage = Mathf.Pow((wallJumpTotalTime - walljumpControlDelay) / wallJumpTotalTime, 3);
+
+            GetComponent<Rigidbody2D>().velocity = new Vector2(
                 controlPercentage * move * maxSpeed + (1 - controlPercentage) * GetComponent<Rigidbody2D>().velocity.x,
                 GetComponent<Rigidbody2D>().velocity.y
                 );
@@ -115,33 +122,45 @@ public class PlatformerCharacter2D : MonoBehaviour
 
         // Walljump reset
         if (walljumpControlDelay > 0) walljumpControlDelay = Time.deltaTime < walljumpControlDelay ? walljumpControlDelay - Time.deltaTime : 0;
+        if (walljumpControlDelay > 0) GetComponent<Rigidbody2D>().AddForce(new Vector2(0, -Physics.gravity.y));
 
         if (jump)
         {
-            float xForce = 0f;
-            float yMultiplier = 1f;
+            bool cancelHorizontalVelocity = false;
+            float horizontalForce = 0f;
+            float verticalForce = 0f;
 
             // If the player should jump...
-            if (grounded) yMultiplier = 4f / 3;
+            if (grounded)
+            {
+                verticalForce = jumpVerticalForce;
+            }
             else if (Physics2D.OverlapCircle(backWallCheck.position, wallCheckRadius, whatIsGround))
             {
-                walljumpControlDelay = wallJumpTime;
-                xForce = wallJumpForce * (facingRight ? 1 : -1);
+                walljumpControlDelay = wallJumpTotalTime;
+                cancelHorizontalVelocity = true;
+                horizontalForce = walljumpHorizontalForce * (facingRight ? 1 : -1);
+                verticalForce = wallJumpVerticalForce;
             }
             else if (Physics2D.OverlapCircle(frontWallCheck.position, wallCheckRadius, whatIsGround))
             {
-                walljumpControlDelay = wallJumpTime;
-                xForce = wallJumpForce * (facingRight ? -1 : 1);
+                walljumpControlDelay = wallJumpTotalTime;
+                cancelHorizontalVelocity = true;
+                horizontalForce = walljumpHorizontalForce * (facingRight ? -1 : 1);
+                verticalForce = wallJumpVerticalForce;
             }
-            else if (midairsCounter++ < maxMidairs) { }
+            else if (midairsCounter++ < maxMidairs)
+            {
+                verticalForce = midairVerticalForce;
+            }
             else jump = false;
 
             // Add a vertical force to the player.
             if (jump)
             {
                 anim.SetBool("Ground", false);
-                GetComponent<Rigidbody2D>().velocity = new Vector2(GetComponent<Rigidbody2D>().velocity.x, 0);
-                GetComponent<Rigidbody2D>().AddForce(new Vector2(xForce, jumpForce * yMultiplier));
+                GetComponent<Rigidbody2D>().velocity = new Vector2(cancelHorizontalVelocity ? 0 : GetComponent<Rigidbody2D>().velocity.x, 0);
+                GetComponent<Rigidbody2D>().AddForce(new Vector2(horizontalForce, verticalForce));
             }
         }
 
