@@ -13,6 +13,8 @@ public class PlatformerCharacter2D : MonoBehaviour
     [Range(0, 1)]
     [SerializeField] float walljumpUncontrolableTime = 0.3f;
     [SerializeField] int maxMidairs = 1;
+    [SerializeField] float maxWindupTime = 3f;
+    [SerializeField] float maxWindupMultiplier = 1.5f;
 
     [Range(0, 1)]
 	[SerializeField] float crouchSpeed = .36f;			// Amount of maxSpeed applied to crouching movement. 1 = 100%
@@ -22,8 +24,13 @@ public class PlatformerCharacter2D : MonoBehaviour
 
     float walljumpControlDelay = 0;
     int midairsCounter = 0;
+	bool grounded = false;								// Whether or not the player is grounded.
+    bool previouslyGrounded = false;
+    float windupTime = 0f;
+    int windupParticleAmount = 60;
 
-	Transform groundCheck;                              // A position marking where to check if the player is grounded.
+
+    Transform groundCheck;                              // A position marking where to check if the player is grounded.
     Transform ceilingCheck;								// A position marking where to check for ceilings
     Transform backWallCheck;                            // A position marking where to check if the player touching the right wall.
     Transform frontWallCheck;					        // A position marking where to check if the player touching the left wall.
@@ -33,8 +40,6 @@ public class PlatformerCharacter2D : MonoBehaviour
     ParticleSystem walljumpParticles;                   // A position marking where to check if the player touching the right wall.
 
     float groundedRadius = .1f;							// Radius of the overlap circle to determine if grounded
-	bool grounded = false;								// Whether or not the player is grounded.
-    bool previouslyGrounded = false;
 	float ceilingRadius = .18f;                         // Radius of the overlap circle to determine if the player can stand up
     float wallCheckRadius = .15f;                       // Radius of the overlap circle to determine if the player can stand up
 
@@ -92,7 +97,7 @@ public class PlatformerCharacter2D : MonoBehaviour
         
     }
 
-    public void Move(float move, bool crouch, bool jump)
+    public void Move(float move, bool crouch, bool jump, bool winding)
 	{
 		// If crouching, check to see if the character can stand up
 		if(!crouch && anim.GetBool("Crouch"))
@@ -104,7 +109,6 @@ public class PlatformerCharacter2D : MonoBehaviour
 
 		// Set whether or not the character is crouching in the animator
 		anim.SetBool("Crouch", crouch);
-        if (crouch && grounded) windupParticles.Play(); else windupParticles.Stop();
         coll.size = crouch ? croutchedColliderSize : initialColliderSize;
         coll.offset = crouch ? croutchedColliderOffset : initialColliderOffset;
 
@@ -141,7 +145,18 @@ public class PlatformerCharacter2D : MonoBehaviour
         if (walljumpControlDelay > 0) walljumpControlDelay = Time.deltaTime < walljumpControlDelay ? walljumpControlDelay - Time.deltaTime : 0;
         if (walljumpControlDelay > 0) GetComponent<Rigidbody2D>().AddForce(new Vector2(0, -Physics.gravity.y));
 
-        if (jump)
+        if (windupTime > 0 && winding)
+        {
+            windupTime += Time.deltaTime;
+            ParticleSystem.EmissionModule emission = windupParticles.emission;
+            emission.rateOverTime = windupParticleAmount * Mathf.Min(maxWindupTime, windupTime) / maxWindupTime;
+        }
+
+        if (jump && crouch && grounded)
+        {
+            windupTime += Time.deltaTime;
+        }
+        else if ( jump || ( !winding && windupTime > 0 ))
         {
             bool cancelHorizontalVelocity = false;
             float horizontalForce = 0f;
@@ -150,7 +165,10 @@ public class PlatformerCharacter2D : MonoBehaviour
             // If the player should jump...
             if (grounded)
             {
-                verticalForce = jumpVerticalForce;
+                verticalForce = jumpVerticalForce * (1 + ((maxWindupMultiplier - 1) * (Mathf.Min(maxWindupTime, windupTime) / maxWindupTime)));
+                windupTime = 0f;
+                ParticleSystem.EmissionModule emission = windupParticles.emission;
+                emission.rateOverTime = 0f;
             }
             else if (Physics2D.OverlapCircle(backWallCheck.position, wallCheckRadius, whatIsGround))
             {
@@ -172,10 +190,9 @@ public class PlatformerCharacter2D : MonoBehaviour
             {
                 verticalForce = midairVerticalForce;
             }
-            else jump = false;
 
             // Add a vertical force to the player.
-            if (jump)
+            if (verticalForce > 0)
             {
                 anim.SetBool("Ground", false);
                 GetComponent<Rigidbody2D>().velocity = new Vector2(cancelHorizontalVelocity ? 0 : GetComponent<Rigidbody2D>().velocity.x, 0);
