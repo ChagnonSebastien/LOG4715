@@ -48,6 +48,7 @@ public class PlatformerCharacter2D : MonoBehaviour
     Vector2 croutchedColliderOffset;
     Vector2 croutchedColliderSize;
 
+    public bool isGrounded() => grounded;
 
     void Awake()
 	{

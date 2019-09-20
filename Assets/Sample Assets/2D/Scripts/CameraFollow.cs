@@ -11,14 +11,16 @@ public class CameraFollow : MonoBehaviour
 	public Vector2 minXAndY;		// The minimum x and y coordinates the camera can have.
 
 
-	private Transform player;		// Reference to the player's transform.
+	private Transform player;       // Reference to the player's transform.
+    private PlatformerCharacter2D controller;       // Reference to the player's transform.
 
 
-	void Awake ()
+    void Awake ()
 	{
 		// Setting up the reference.
 		player = GameObject.FindGameObjectWithTag("Player").transform;
-	}
+        controller = GameObject.FindGameObjectWithTag("Player").GetComponent<PlatformerCharacter2D>();
+    }
 
 
 	bool CheckXMargin()
@@ -53,7 +55,7 @@ public class CameraFollow : MonoBehaviour
 			targetX = Mathf.Lerp(transform.position.x, player.position.x, xSmooth * Time.deltaTime);
 
 		// If the player has moved beyond the y margin...
-		if(CheckYMargin())
+		if(CheckYMargin() && ((PlatformerCharacter2D)controller).isGrounded())
 			// ... the target y coordinate should be a Lerp between the camera's current y position and the player's current y position.
 			targetY = Mathf.Lerp(transform.position.y, player.position.y, ySmooth * Time.deltaTime);
 
